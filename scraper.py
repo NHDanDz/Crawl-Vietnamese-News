@@ -1,47 +1,3 @@
-from bs4 import BeautifulSoup
-import requests
-import os 
-import urllib.request
-
-def get_links_in_page_thanhnien(url):
-    page = urllib.request.urlopen(url)
-    soup = BeautifulSoup(page, 'html.parser')
-    # <div>
-    div_all = soup.find_all('div', attrs={'class':'site-content'})
-    # div_all
-    # <h2>
-    h2_all = []
-    for div in div_all:
-        h2_all.extend(div.find_all('h2', attrs={'class':''})) 
-    #<a>
-    a_all = []
-    results = [[]]
-    for h2 in h2_all:
-        a_all.extend(h2.find_all('a', attrs={'class':'story__title'}))
-
-    for a in a_all:
-        title = a.get('title')
-        if(a.get('href').find('video') != -1):
-            pass
-        else:
-            link =  'https://thanhnien.vn/'+ str(a.get('href'))
-
-        print('Title: {} - Link: {}'.format(title, link))
-        results.append([title,link])
-    return results
-class NewsScraper:
-    def __init__(self):
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        self.vnexpress_categories = {
-            'Thời sự': '1001005',
-            'Kinh doanh': '1003159',
-            'Thể thao': '1002565',
-            'Giải trí': '1002691',
-            'Giáo dục': '1003497',
-            'Sức khỏe': '1003750'
-        }
 
 import time
 from datetime import datetime
@@ -104,7 +60,7 @@ class NewsScraper:
             print(f"Error checking date range: {e}")
             return True  # If there's an error, include the article
 
-    def scrape_news(self, source: str, topic: str, quantity: int = 25, fromdate=None, todate=None):
+    def scrape_news(self, source: str, topic: str, quantity: int = 1000, fromdate=None, todate=None):
         """Main method to scrape news based on source"""
         base_url = self._get_base_url(source, topic)
         if not base_url:
@@ -113,22 +69,25 @@ class NewsScraper:
 
         try:
             articles = []
-            if source == 'VnExpress': 
-                # For VnExpress, modify URL to include date range
+            if source == 'VnExpress':
+                # Check if dates are provided and if todate is today
                 if fromdate and todate:
-                    from_timestamp = self._convert_date_to_timestamp(fromdate)
-                    to_timestamp = self._convert_date_to_timestamp(todate)
-                    print(from_timestamp, " ", to_timestamp)
-                    if from_timestamp and to_timestamp:
-                        category_id = self.vnexpress_categories.get(topic)
-                        print(category_id)
-                        if category_id:
-                            base_url = f"https://vnexpress.net/category/day/cateid/{category_id}/fromdate/{from_timestamp}/todate/{to_timestamp}/allcate/{category_id}"
-                            print(base_url)
-                # print(base_url) https://vnexpress.net/category/day/cateid/1001005/fromdate/1731542400/todate/1732320000/allcate/1001005
+                    today = datetime.now().strftime('%Y-%m-%d')
+                    if todate == today:
+                        # If todate is today, don't apply date filter
+                        print("Today's date detected - scraping without date filter") 
+                    else:
+                        # Apply date filter for historical dates
+                        from_timestamp = self._convert_date_to_timestamp(fromdate)
+                        to_timestamp = self._convert_date_to_timestamp(todate)
+                        if from_timestamp and to_timestamp:
+                            category_id = self.vnexpress_categories.get(topic)
+                            if category_id:
+                                base_url = f"https://vnexpress.net/category/day/cateid/{category_id}/fromdate/{from_timestamp}/todate/{to_timestamp}/allcate/{category_id}"
+                print(f"Using URL: {base_url}")
                 articles = self._scrape_vnexpress(base_url, quantity)
-            
-            elif source == 'Thanh Niên':
+                
+            elif source == 'Thanh Niên': 
                 articles = self._scrape_thanhnien(base_url, quantity)
             elif source == 'VietnamNet':
                 articles = self._scrape_vietnamnet(base_url, quantity)
@@ -140,12 +99,12 @@ class NewsScraper:
                 articles = self._scrape_tienphong(base_url, quantity)
 
             # Filter articles by date range for non-VnExpress sources
-            if fromdate and todate and source != 'VnExpress':
-                filtered_articles = []
-                for article in articles:
-                    if article.get('date') and self._is_date_in_range(article['date'], fromdate, todate):
-                        filtered_articles.append(article)
-                articles = filtered_articles[:quantity]
+            # if fromdate and todate and source != 'VnExpress':
+            #     filtered_articles = []
+            #     for article in articles:
+            #         if article.get('date') and self._is_date_in_range(article['date'], fromdate, todate):
+            #             filtered_articles.append(article)
+            #     articles = filtered_articles[:quantity]
             
             return articles
 
@@ -163,63 +122,92 @@ class NewsScraper:
             print(f"Error parsing VnExpress date: {e}")
             return None
 
-    def _scrape_vnexpress(self, url, quantity):
+    def _scrape_vnexpress(self, base_url, quantity):
         articles = []
+        page = 1
+        
         try:
-            response = requests.get(url, headers=self.headers)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            article_containers = [
-                '.width_common.list-news-subfolder',
-                '.container-fluid .sidebar-1',
-                '.width_common.list_news',
-                '.col-left-top'
-            ]
-            
-            for container_selector in article_containers:
-                containers = soup.select(container_selector)
-                for container in containers:
-                    articles_elements = container.find_all(['article', 'div'], class_=['item-news', 'article-item'])
+            while len(articles) < quantity:
+                # Construct URL with pagination
+                if "fromdate" in base_url and "todate" in base_url:
+                    # URL format for date-filtered pages
+                    current_url = f"{base_url}/page/{page}" if page > 1 else base_url
+                else:
+                    # URL format for regular pages
+                    current_url = f"{base_url}-p{page}" if page > 1 else base_url
+                
+                print(f"Scraping page {page}: {current_url}")
+                
+                response = requests.get(current_url, headers=self.headers)
+                if response.status_code != 200:
+                    break
                     
-                    for article in articles_elements:
-                        if len(articles) >= quantity:
-                            return articles
+                soup = BeautifulSoup(response.content, 'html.parser')
+                article_containers = [
+                    '.width_common.list-news-subfolder',
+                    '.container-fluid .sidebar-1',
+                    '.width_common.list_news',
+                    '.col-left-top'
+                ]
+                
+                found_articles = False
+                for container_selector in article_containers:
+                    containers = soup.select(container_selector)
+                    for container in containers:
+                        articles_elements = container.find_all(['article', 'div'], class_=['item-news', 'article-item'])
+                        
+                        if articles_elements:
+                            found_articles = True
                             
-                        try:
-                            title_elem = (
-                                article.find('a', class_='title-news') or 
-                                article.find('h3', class_='title-news').find('a') if article.find('h3', class_='title-news') else None or
-                                article.find('a', class_='art-title')
-                            )
-                            
-                            desc_elem = (
-                                article.find('p', class_='description') or
-                                article.find('p', class_='news-item__description') or
-                                article.find('p', class_='article-item__summary')
-                            )
-                            
-                            date_elem = (
-                                article.find('span', class_='time-publish') or
-                                article.find('span', class_='time') or
-                                article.find('span', class_='article-item__publish')
-                            )
-                            
-                            if title_elem and desc_elem:
-                                articles.append({
-                                    'title': title_elem.text.strip(),
-                                    'description': desc_elem.text.strip(),
-                                    'link': title_elem.get('href', ''),
-                                    'date': date_elem.text.strip() if date_elem else '',
-                                    'source': 'VnExpress'
-                                })
-                            
-                        except Exception as e:
-                            print(f"Error parsing individual VnExpress article: {e}")
-                            continue
-                            
+                        for article in articles_elements:
+                            if len(articles) >= quantity:
+                                return articles
+                                
+                            try:
+                                title_elem = (
+                                    article.find('a', class_='title-news') or 
+                                    article.find('h3', class_='title-news').find('a') if article.find('h3', class_='title-news') else None or
+                                    article.find('a', class_='art-title')
+                                )
+                                
+                                desc_elem = (
+                                    article.find('p', class_='description') or
+                                    article.find('p', class_='news-item__description') or
+                                    article.find('p', class_='article-item__summary')
+                                )
+                                
+                                date_elem = (
+                                    article.find('span', class_='time-publish') or
+                                    article.find('span', class_='time') or
+                                    article.find('span', class_='article-item__publish')
+                                )
+                                
+                                if title_elem and desc_elem:
+                                    articles.append({
+                                        'title': title_elem.text.strip(),
+                                        'description': desc_elem.text.strip(),
+                                        'link': title_elem.get('href', ''),
+                                        'date': date_elem.text.strip() if date_elem else '',
+                                        'source': 'VnExpress'
+                                    })
+                                
+                            except Exception as e:
+                                print(f"Error parsing individual VnExpress article: {e}")
+                                continue
+                
+                # Break if no articles found on current page
+                if not found_articles:
+                    break
+                    
+                page += 1
+                
+                # Add a small delay between requests to be polite
+                time.sleep(1)
+                
         except Exception as e:
             print(f"Error fetching VnExpress: {e}")
             
-        return articles
+        return articles[:quantity]
     # def scrape_news(self, source: str, topic: str, quantity: int = 25):
     #     """Main method to scrape news based on source"""
     #     base_url = self._get_base_url(source, topic)
@@ -241,6 +229,7 @@ class NewsScraper:
     #     pass
 
     def _scrape_thanhnien(self, url, quantity): 
+        # print(url)
         page = urllib.request.urlopen(url)
         soup = BeautifulSoup(page, 'html.parser')
         # <div>
@@ -250,18 +239,18 @@ class NewsScraper:
         h3_all = []
         for div in div_all:
             h3_all.extend(div.find_all('h3', attrs={'class':'box-title-text', 'data-vr-headline':""})) 
-        a_all = []
+        a_all = [] 
         articles = [] 
         for h3 in h3_all: 
             if len(articles) >= quantity:
                 break
             try:
-                link_elem = h3.find('a', attrs={'class':'box-category-link-title'})
+                link_elem = h3.find('a', attrs={'class':'box-category-link-title'}) 
                 if not link_elem:
-                    continue
-                    
+                    continue 
                 title = link_elem.get('title')
                 link = link_elem.get('href')
+                # print(title, link)
                 
                 if link and not link.startswith('http'):
                     link = 'https://thanhnien.vn' + link
@@ -284,8 +273,7 @@ class NewsScraper:
                     
             except Exception as e:
                 print(f"Error parsing article: {str(e)}")
-                continue
-                
+                continue 
         return articles
     
     def _scrape_vietnamnet(self, url, quantity):
@@ -515,7 +503,7 @@ class NewsScraper:
 
         return articles
 
-    def _get_base_url(self, source: str, topic: str) -> str:
+    def _get_base_url(self, source: str, topic: str):  
         """Get base URL for given source and topic"""
         urls = {
             'VnExpress': {
@@ -565,19 +553,36 @@ class NewsScraper:
                 'Giải trí': 'https://tienphong.vn/giai-tri/', 
                 'Giáo dục': 'https://tienphong.vn/giao-duc/',
                 'Sức khỏe': 'https://tienphong.vn/suc-khoe/'
+            },
+            'Thế giới và Việt Nam': {
+                'Thời sự': 'https://baoquocte.vn/thoi-su',
+                'Kinh doanh': 'https://baoquocte.vn/kinh-te',
+                'Thể thao': 'https://baoquocte.vn/the-thao',
+                'Giải trí': 'https://baoquocte.vn/giai-tri', 
+                'Giáo dục': 'https://baoquocte.vn/xa-hoi/giao-duc',
+                'Sức khỏe': 'https://baoquocte.vn/xa-hoi/y-te'
+            },
+            'Thông tấn xã Việt Nam': {
+                'Thời sự': 'https://baotintuc.vn/thoi-su-472ct0.htm',
+                'Kinh doanh': 'https://baotintuc.vn/kinh-te-128ct0.htm',
+                'Thể thao': 'https://baotintuc.vn/the-thao-273ct0.htm',
+                'Giải trí': 'https://baotintuc.vn/giai-tri-sao-274ct158.htm', 
+                'Giáo dục': 'https://baotintuc.vn/giao-duc-135ct0.htm',
+                'Sức khỏe': 'https://baotintuc.vn/suc-khoe-564ct0.htm'
             }
         }
         return urls.get(source, {}).get(topic, '')
 
 
 
-scraper = NewsScraper()
-articles = scraper.scrape_news('Tiền Phong', 'Thời sự', quantity=50)
-i = 1
-for article in articles:
-    print(i)
-    print(f"Title: {article['title']}")
-    print(f"Link: {article['link']}")
-    print(f"description: {article['description']}")
-    print("---")
-    i += 1
+if __name__ == "__main__":
+    scraper = NewsScraper()
+    articles = scraper.scrape_news('Tiền Phong', 'Thời sự', quantity=50)
+    i = 1
+    for article in articles:
+        print(i)
+        print(f"Title: {article['title']}")
+        print(f"Link: {article['link']}")
+        print(f"description: {article['description']}")
+        print("---")
+        i += 1

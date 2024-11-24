@@ -51,10 +51,11 @@ def collect_news():
                     articles = scraper.scrape_news(
                         source, 
                         topic, 
-                        quantity=25,
+                        quantity=1000,
                         fromdate=fromdate,
                         todate=todate
                     )
+                    # print(articles)
                     
                     for article in articles:
                         formatted_article = {
@@ -109,7 +110,7 @@ def search_news():
         for source in sources:
             for topic in topics:
                 try:
-                    articles = scraper.scrape_news(source, topic, quantity=50)
+                    articles = scraper.scrape_news(source, topic, quantity=1000)
                     
                     # Filter articles based on search query
                     for article in articles:
@@ -137,6 +138,61 @@ def search_news():
         
     except Exception as e:
         print(f"Error in search_news: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+
+@app.route('/analytics', methods=['POST'])
+def analyze_news():
+    try:
+        data = request.get_json()
+        if not data or 'articles' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing articles data'
+            }), 400
+
+        articles = data['articles']
+        
+        # Phân tích dữ liệu
+        analysis = {
+            # Thống kê theo nguồn tin
+            'source_stats': Counter(article['source'] for article in articles),
+            
+            # Thống kê theo chủ đề
+            'topic_stats': Counter(article['topic'] for article in articles),
+            
+            # Thống kê theo ngày
+            'date_stats': Counter(article['date'].split()[0] for article in articles if article.get('date')),
+            
+            # Tổng quan
+            'total_articles': len(articles),
+            'unique_sources': len(set(article['source'] for article in articles)),
+            'unique_topics': len(set(article['topic'] for article in articles))
+        }
+        
+        # Chuyển đổi Counter objects thành list để có thể serialize
+        formatted_analysis = {
+            'source_stats': [{'name': k, 'value': v} for k, v in analysis['source_stats'].items()],
+            'topic_stats': [{'name': k, 'value': v} for k, v in analysis['topic_stats'].items()],
+            'date_stats': [{'date': k, 'count': v} for k, v in analysis['date_stats'].items()],
+            'summary': {
+                'total_articles': analysis['total_articles'],
+                'unique_sources': analysis['unique_sources'],
+                'unique_topics': analysis['unique_topics']
+            }
+        }
+
+        return jsonify({
+            'success': True,
+            'data': formatted_analysis
+        })
+
+    except Exception as e:
+        print(f"Error in analyze_news: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
