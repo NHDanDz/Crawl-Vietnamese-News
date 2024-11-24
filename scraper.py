@@ -1,6 +1,7 @@
 
 import time
 from datetime import datetime
+from datetime import timedelta
 from bs4 import BeautifulSoup
 import requests
 import urllib.request
@@ -73,25 +74,19 @@ class NewsScraper:
             if source == 'VnExpress':
                 # Check if dates are provided and if todate is today
                 if fromdate and todate:
-                    today = datetime.now().strftime('%Y-%m-%d')
-                    if todate == today:
-                        # If todate is today, don't apply date filter
-                        print("Today's date detected - scraping without date filter") 
-                    else:
+                    today = datetime.now().strftime('%Y-%m-%d') 
                         # Apply date filter for historical dates
-                        from_timestamp = self._convert_date_to_timestamp(fromdate)
-                        to_timestamp = self._convert_date_to_timestamp(todate)
-                        if from_timestamp and to_timestamp:
-                            category_id = self.vnexpress_categories.get(topic)
-                            if category_id:
-                                base_url = f"https://vnexpress.net/category/day/cateid/{category_id}/fromdate/{from_timestamp}/todate/{to_timestamp}/allcate/{category_id}"
+                    from_timestamp = self._convert_date_to_timestamp(fromdate)
+                    to_timestamp = self._convert_date_to_timestamp(todate)
+                    if from_timestamp and to_timestamp:
+                        category_id = self.vnexpress_categories.get(topic)
+                        if category_id:
+                            base_url = f"https://vnexpress.net/category/day/cateid/{category_id}/fromdate/{from_timestamp}/todate/{to_timestamp}/allcate/{category_id}"
                 print(f"Using URL: {base_url}")
                 articles = self._scrape_vnexpress(base_url, quantity)
                 
             elif source == 'VietnamNet':
-                    articles = self._scrape_vietnamnet(base_url, quantity, fromdate, todate)
-            elif source == 'VietnamNet':
-                articles = self._scrape_vietnamnet(base_url, quantity)
+                    articles = self._scrape_vietnamnet(base_url, quantity, fromdate, todate) 
             elif source == 'Người Đưa Tin':
                 articles = self._scrape_nguoiduatin(base_url, quantity)
             elif source == 'Dân Trí':
@@ -99,7 +94,7 @@ class NewsScraper:
             elif source == 'Tiền Phong':
                 articles = self._scrape_tienphong(base_url, quantity)
             elif source == 'Thế giới và Việt Nam':
-                return self._scrape_baoquocte(base_url, quantity)
+                return self._scrape_baoquocte(base_url, quantity, fromdate, todate) 
             elif source == 'Thông tấn xã Việt Nam':
                 return self._scrape_baotintuc(base_url, quantity)
 
@@ -297,25 +292,20 @@ class NewsScraper:
         try:
             while len(articles) < quantity:
                 current_url = ""
+                 
+                # Format dates for URL
+                from_date_str = datetime.strptime(fromdate, '%Y-%m-%d').strftime('%d/%m/%Y')
+                to_date_str = datetime.strptime(todate, '%Y-%m-%d').strftime('%d/%m/%Y')
                 
-                if fromdate and todate and not self._is_today(todate):
-                    # Format dates for URL
-                    from_date_str = datetime.strptime(fromdate, '%Y-%m-%d').strftime('%d/%m/%Y')
-                    to_date_str = datetime.strptime(todate, '%Y-%m-%d').strftime('%d/%m/%Y')
-                    
-                    # Extract topic from URL
-                    topic_key = url.split('vietnamnet.vn/')[1].split('/')[0] if 'vietnamnet.vn/' in url else ''
-                    category_id = topic_mapping.get(topic_key, {}).get('id', '000002')  # Default to Thời sự if not found
-                    
-                    # Construct URL for date range
-                    if page == 1:
-                        current_url = f"https://vietnamnet.vn/tin-tuc-24h?bydate={from_date_str}-{to_date_str}&cate={category_id}"
-                    else:
-                        current_url = f"https://vietnamnet.vn/tin-tuc-24h-p{page}?bydate={from_date_str}-{to_date_str}&cate={category_id}"
+                # Extract topic from URL
+                topic_key = url.split('vietnamnet.vn/')[1].split('/')[0] if 'vietnamnet.vn/' in url else ''
+                category_id = topic_mapping.get(topic_key, {}).get('id', '000002')  # Default to Thời sự if not found
+                
+                # Construct URL for date range
+                if page == 1:
+                    current_url = f"https://vietnamnet.vn/tin-tuc-24h?bydate={from_date_str}-{to_date_str}&cate={category_id}"
                 else:
-                    # URL for current day (default pagination)
-                    base_url = url.rstrip('/')
-                    current_url = f"{base_url}-page{page}" if page > 1 else base_url
+                    current_url = f"https://vietnamnet.vn/tin-tuc-24h-p{page}?bydate={from_date_str}-{to_date_str}&cate={category_id}" 
                 
                 print(f"Scraping page {page}: {current_url}")
                 
@@ -568,70 +558,111 @@ class NewsScraper:
 
         return articles
     
-    def _scrape_baoquocte(self, url, quantity):
-    
-        # Mở và phân tích trang web
-        page = urllib.request.urlopen(url)
-        soup = BeautifulSoup(page, 'html.parser')
+    def _scrape_baoquocte(self, base_url, quantity, fromdate=None, todate=None):
+        articles = []
+         
+        try:
+            # Convert dates to datetime objects
+            start_date = datetime.strptime(fromdate, '%Y-%m-%d')
+            end_date = datetime.strptime(todate, '%Y-%m-%d')
+            
+            # Generate list of dates between fromdate and todate
+            date_list = []
+            current_date = start_date
+            while current_date <= end_date:
+                date_list.append(current_date)
+                current_date += timedelta(days=1)
+            
+            print(f"Will scrape articles from {len(date_list)} days")
+            
+            # Scrape articles for each date
+            for date in date_list:
+                if len(articles) >= quantity:
+                    break
+                    
+                date_str = date.strftime('%Y-%m-%d')  # Format for URL: YYYY-MM-DD
+                page = 0  # Reset page counter for each date
+                
+                while True:
+                    current_url = f"{base_url}&fv={date_str}&s_cond=&BRSR={page * 15}"
+                    print(f"Scraping date {date_str}, page {page + 1}: {current_url}")
+                    
+                    try:
+                        response = requests.get(current_url, headers=self.headers)
+                        if response.status_code != 200:
+                            print(f"Failed to fetch page {page + 1} for date {date_str}: Status code {response.status_code}")
+                            break
+                            
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Find all article containers
+                        article_containers = soup.find_all('div', attrs={'class': 'bx-list-left lt'})
+                        
+                        found_new_articles = False
+                        for container in article_containers:
+                            articles_elements = container.find_all('div', attrs={'class': 'article'})
+                            
+                            for article in articles_elements:
+                                try:
+                                    if len(articles) >= quantity:
+                                        return articles[:quantity]
+                                        
+                                    link_elem = article.find('a')
+                                    if not link_elem:
+                                        continue
 
-        # Tìm tất cả các thẻ <div> chứa bài viết
-        div_all = soup.find_all('div', attrs={'class': 'bx-list-left lt'})
-        # print(div_all)
-        # Lấy các thẻ <h3> trong các <div> này
-        h3_all = []
-        for div in div_all:
-            h3_all.extend(div.find_all('div', attrs={'class': 'article'}))
-        print(h3_all)
+                                    title = link_elem.get('title')
+                                    link = link_elem.get('href')
 
-        articles = []  # Danh sách kết quả bài viết
-        for h3 in h3_all:
-            if len(articles) >= quantity:  # Dừng nếu đạt số lượng yêu cầu
-                break
+                                    if link and not link.startswith('http'):
+                                        link = 'https://baoquocte.vn' + link
 
-            try:
-                # Tìm thẻ <a> chứa tiêu đề và liên kết
-                link_elem = h3.find('a')
-                if not link_elem:
-                    continue
+                                    desc_elem = article.find('div', attrs={'class': 'article-desc'})
+                                    description = desc_elem.text.strip() if desc_elem else ''
 
-                title = link_elem.get('title')
-                link = link_elem.get('href')
+                                    date_elem = article.find('div', attrs={'class': 'box-meta'})
+                                    article_date = date_elem.text.strip() if date_elem else date_str
 
-                # Chuyển liên kết sang dạng đầy đủ
-                if link and not link.startswith('http'):
-                    link = 'https://baoquocte.vn' + link
-
-                # Tìm phần mô tả (nếu có)
-                desc_elem = h3.find('div', attrs={'class': 'article-desc'})  # Giả sử mô tả là thẻ <p> tiếp theo
-                description = desc_elem.text.strip() if desc_elem else ''
-
-                # Tìm ngày đăng (nếu có)
-                date_elem = h3.find_next('span', class_='time')  # Giả sử ngày trong thẻ <span class="time">
-                date = date_elem.text.strip() if date_elem else ''
-
-                # Lưu bài viết vào danh sách
-                if title and link:
-                    articles.append({
-                        'title': title,
-                        'description': description,
-                        'link': link,
-                        'date': date,
-                        'source': 'Thế giới và Việt Nam'
-                    })
-
-            except Exception as e:
-                print(f"Error parsing article: {str(e)}")
-                continue
-
-        return articles
-    
+                                    if title and link:
+                                        found_new_articles = True
+                                        articles.append({
+                                            'title': title,
+                                            'description': description,
+                                            'link': link,
+                                            'date': article_date,
+                                            'source': 'Thế giới và Việt Nam'
+                                        })
+                                        
+                                except Exception as e:
+                                    print(f"Error parsing article on date {date_str}, page {page + 1}: {str(e)}")
+                                    continue
+                        
+                        if not found_new_articles:
+                            print(f"No new articles found for date {date_str} on page {page + 1}")
+                            break
+                        
+                        page += 1
+                        time.sleep(1)  # Be nice to the server
+                        
+                    except Exception as e:
+                        print(f"Error processing date {date_str}, page {page + 1}: {str(e)}")
+                        break
+                        
+                print(f"Found {len(articles)} articles so far")
+                
+        except Exception as e:
+            print(f"Error processing date range: {str(e)}")
+        
+            
+        return articles[:quantity]
+        
     def _scrape_baotintuc(self, url, quantity):
     
         # Mở và phân tích trang web
         result = subprocess.run(
             ["curl", "-k", url], capture_output=True
         )
-        
+        print(url)
         # Kiểm tra xem lệnh có chạy thành công không
         if result.returncode != 0:
             print(f"Error fetching page: {result.stderr.decode('utf-8', errors='ignore')}")
@@ -652,8 +683,7 @@ class NewsScraper:
             h3_all.extend(div.find_all('div', attrs={'id': 'plhMain_ctl00_divFocus'}))
             h3_all.extend(div.find_all('li', attrs={'class': 'item'}))
             h3_all.extend(div.find_all('li', attrs={'class': 'boxnews-item'}))
-        print(h3_all)
-
+ 
         articles = []  # Danh sách kết quả bài viết
         for h3 in h3_all:
             if len(articles) >= quantity:  # Dừng nếu đạt số lượng yêu cầu

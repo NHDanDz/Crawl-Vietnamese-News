@@ -32,7 +32,7 @@ def home():
 def collect_news():
     try:
         data = request.get_json()
-        if not data or 'sources' not in data or 'topics' not in data:
+        if 'topics' not in data:
             return jsonify({
                 'success': False,
                 'error': 'Missing required data'
