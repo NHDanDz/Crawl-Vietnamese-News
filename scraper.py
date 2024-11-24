@@ -4,6 +4,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import requests
 import urllib.request
+import subprocess
 
 class NewsScraper:
     def __init__(self):
@@ -97,6 +98,10 @@ class NewsScraper:
                 articles = self._scrape_dantri(base_url, quantity)
             elif source == 'Tiền Phong':
                 articles = self._scrape_tienphong(base_url, quantity)
+            elif source == 'Thế giới và Việt Nam':
+                return self._scrape_baoquocte(base_url, quantity)
+            elif source == 'Thông tấn xã Việt Nam':
+                return self._scrape_baotintuc(base_url, quantity)
 
             # Filter articles by date range for non-VnExpress sources
             # if fromdate and todate and source != 'VnExpress':
@@ -555,6 +560,134 @@ class NewsScraper:
                         'link': link,
                         'date': date,
                         'source': 'Tiền Phong'
+                    })
+
+            except Exception as e:
+                print(f"Error parsing article: {str(e)}")
+                continue
+
+        return articles
+    
+    def _scrape_baoquocte(self, url, quantity):
+    
+        # Mở và phân tích trang web
+        page = urllib.request.urlopen(url)
+        soup = BeautifulSoup(page, 'html.parser')
+
+        # Tìm tất cả các thẻ <div> chứa bài viết
+        div_all = soup.find_all('div', attrs={'class': 'bx-list-left lt'})
+        # print(div_all)
+        # Lấy các thẻ <h3> trong các <div> này
+        h3_all = []
+        for div in div_all:
+            h3_all.extend(div.find_all('div', attrs={'class': 'article'}))
+        print(h3_all)
+
+        articles = []  # Danh sách kết quả bài viết
+        for h3 in h3_all:
+            if len(articles) >= quantity:  # Dừng nếu đạt số lượng yêu cầu
+                break
+
+            try:
+                # Tìm thẻ <a> chứa tiêu đề và liên kết
+                link_elem = h3.find('a')
+                if not link_elem:
+                    continue
+
+                title = link_elem.get('title')
+                link = link_elem.get('href')
+
+                # Chuyển liên kết sang dạng đầy đủ
+                if link and not link.startswith('http'):
+                    link = 'https://baoquocte.vn' + link
+
+                # Tìm phần mô tả (nếu có)
+                desc_elem = h3.find('div', attrs={'class': 'article-desc'})  # Giả sử mô tả là thẻ <p> tiếp theo
+                description = desc_elem.text.strip() if desc_elem else ''
+
+                # Tìm ngày đăng (nếu có)
+                date_elem = h3.find_next('span', class_='time')  # Giả sử ngày trong thẻ <span class="time">
+                date = date_elem.text.strip() if date_elem else ''
+
+                # Lưu bài viết vào danh sách
+                if title and link:
+                    articles.append({
+                        'title': title,
+                        'description': description,
+                        'link': link,
+                        'date': date,
+                        'source': 'Thế giới và Việt Nam'
+                    })
+
+            except Exception as e:
+                print(f"Error parsing article: {str(e)}")
+                continue
+
+        return articles
+    
+    def _scrape_baotintuc(self, url, quantity):
+    
+        # Mở và phân tích trang web
+        result = subprocess.run(
+            ["curl", "-k", url], capture_output=True
+        )
+        
+        # Kiểm tra xem lệnh có chạy thành công không
+        if result.returncode != 0:
+            print(f"Error fetching page: {result.stderr.decode('utf-8', errors='ignore')}")
+            return []
+
+        # Giải mã dữ liệu đầu ra thành chuỗi, bỏ qua các ký tự không hợp lệ
+        output = result.stdout.decode('utf-8', errors='ignore')
+
+        # Phân tích nội dung trang với BeautifulSoup
+        soup = BeautifulSoup(output, 'html.parser')
+
+        # Tìm tất cả các thẻ <div> chứa bài viết
+        div_all = soup.find_all('div', attrs={'class': 'list-content w1040'})
+        # print(div_all)
+        # Lấy các thẻ <h3> trong các <div> này
+        h3_all = []
+        for div in div_all:
+            h3_all.extend(div.find_all('div', attrs={'id': 'plhMain_ctl00_divFocus'}))
+            h3_all.extend(div.find_all('li', attrs={'class': 'item'}))
+            h3_all.extend(div.find_all('li', attrs={'class': 'boxnews-item'}))
+        print(h3_all)
+
+        articles = []  # Danh sách kết quả bài viết
+        for h3 in h3_all:
+            if len(articles) >= quantity:  # Dừng nếu đạt số lượng yêu cầu
+                break
+
+            try:
+                # Tìm thẻ <a> chứa tiêu đề và liên kết
+                link_elem = h3.find('a')
+                if not link_elem:
+                    continue
+
+                title = link_elem.get('title')
+                link = link_elem.get('href')
+
+                # Chuyển liên kết sang dạng đầy đủ
+                if link and not link.startswith('http'):
+                    link = 'https://baotintuc.vn' + link
+
+                # Tìm phần mô tả (nếu có)
+                desc_elem = h3.find('p', attrs={'class': 'des'})  # Giả sử mô tả là thẻ <p> tiếp theo
+                description = desc_elem.text.strip() if desc_elem else ''
+
+                # Tìm ngày đăng (nếu có)
+                date_elem = h3.find_next('span', class_='time')  # Giả sử ngày trong thẻ <span class="time">
+                date = date_elem.text.strip() if date_elem else ''
+
+                # Lưu bài viết vào danh sách
+                if title and link:
+                    articles.append({
+                        'title': title,
+                        'description': description,
+                        'link': link,
+                        'date': date,
+                        'source': 'Thông tấn xã Việt Nam'
                     })
 
             except Exception as e:

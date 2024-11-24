@@ -48,6 +48,36 @@
         <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
         <!-- Custom Styles -->
         <style>
+            .btn-check + label {
+                display: inline-block;
+                padding: 0.5rem 1rem;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            .btn-check:checked + label {
+                background-color: #007bff;
+                color: white;
+                border-color: #007bff;
+            }
+
+            .btn-check:not(:checked) + label {
+                background-color: white;
+                color: #007bff;
+                border-color: #007bff;
+            }
+            .checkbox-container {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                gap: 10px; /* Khoảng cách giữa các nút */
+            }
+
+            .checkbox-container > div {
+                flex: 1 1 calc(33.33% - 10px); /* Đặt mỗi nút có cùng kích thước và khoảng cách */
+                max-width: calc(33.33% - 10px);
+            }
             .article-card {
                 height: 100%;
                 transition: transform 0.2s;
@@ -132,7 +162,7 @@
                         <h5>Select Date Range:</h5>
                         <div class="row">
                             <div class="col-md-6">
-                                <input type="text" name="daterange" value="10/10/2024 - 10/10/2024" />
+                                <input type="text" name="daterange" value="" />
                             </div>
                         </div>
                     </div>
@@ -140,17 +170,13 @@
                     <!-- Sources Selection -->
                     <div class="mb-4">
                         <h5>Select News Sources:</h5>
-                        <div class="row">
+                        <div class="checkbox-container">
                             {% for source in sources %}
-                            <div class="col-md-4 mb-2">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" 
-                                           name="sources" value="{{ source.name }}" 
-                                           id="source{{ source.id }}">
-                                    <label class="form-check-label" for="source{{ source.id }}">
-                                        {{ source.name }}
-                                    </label>
-                                </div>
+                            <div>
+                                <input class="btn-check" type="checkbox" name="sources" value="{{ source.name }}" id="source{{ source.id }}" autocomplete="off">
+                                <label class="btn btn-outline-primary" for="source{{ source.id }}" style = "width: 100% !important;">
+                                    {{ source.name }}
+                                </label>
                             </div>
                             {% endfor %}
                         </div>
@@ -159,17 +185,13 @@
                     <!-- Topics Selection -->
                     <div class="mb-4">
                         <h5>Select Topics:</h5>
-                        <div class="row">
+                        <div class="checkbox-container">
                             {% for topic in topics %}
-                            <div class="col-md-4 mb-2">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" 
-                                           name="topics" value="{{ topic }}" 
-                                           id="topic{{ loop.index }}">
-                                    <label class="form-check-label" for="topic{{ loop.index }}">
-                                        {{ topic }}
-                                    </label>
-                                </div>
+                            <div>
+                                <input class="btn-check" type="checkbox" name="topics" value="{{ topic }}" id="topic{{ loop.index }}" autocomplete="off">
+                                <label class="btn btn-outline-secondary" for="topic{{ loop.index }}" style = "width: 100% !important;">
+                                    {{ topic }}
+                                </label>
                             </div>
                             {% endfor %}
                         </div>

@@ -15,7 +15,9 @@ news_sources = [
     {"id": 3, "name": "VietnamNet", "url": "https://vietnamnet.vn"},
     {"id": 4, "name": "Người Đưa Tin", "url": "https://nguoiduatin.vn"},
     {"id": 5, "name": "Dân Trí", "url": "https://dantri.com.vn"},
-    {"id": 6, "name": "Tiền Phong", "url": "https://tienphong.vn"}
+    {"id": 6, "name": "Tiền Phong", "url": "https://tienphong.vn"},
+    {"id": 7, "name": "Thế giới và Việt Nam", "url": "https://baoquocte.vn"},
+    {"id": 8, "name": "Thông tấn xã Việt Nam", "url": "https://baotintuc.vn"}
 ]
 
 topics = [
