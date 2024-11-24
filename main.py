@@ -11,12 +11,12 @@ app = Flask(__name__)
 # News sources and topics
 news_sources = [
     {"id": 1, "name": "VnExpress", "url": "https://vnexpress.net"},
-    {"id": 2, "name": "Thanh Niên", "url": "https://thanhnien.vn"},
+    {"id": 2, "name": "Thế giới và Việt Nam", "url": "https://baoquocte.vn"},
     {"id": 3, "name": "VietnamNet", "url": "https://vietnamnet.vn"},
     {"id": 4, "name": "Người Đưa Tin", "url": "https://nguoiduatin.vn"},
     {"id": 5, "name": "Dân Trí", "url": "https://dantri.com.vn"},
     {"id": 6, "name": "Tiền Phong", "url": "https://tienphong.vn"},
-    {"id": 7, "name": "Thế giới và Việt Nam", "url": "https://baoquocte.vn"},
+    {"id": 7, "name": "Thanh Niên", "url": "https://thanhnien.vn"},
     {"id": 8, "name": "Thông tấn xã Việt Nam", "url": "https://baotintuc.vn"}
 ]
 

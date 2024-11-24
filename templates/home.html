@@ -107,9 +107,6 @@
                 border-bottom: 1px solid #eee;
             }
             .filter-section {
-                display: none;
-            }
-            .filter-section.show {
                 display: block;
             }
             #searchResults {
@@ -154,7 +151,7 @@
         </div>
 
         <!-- Filters Section -->
-        <div class="card mt-4 filter-section" id="filterSection">
+        <div class="card mt-4 filter-section show" id="filterSection">
             <div class="card-body">
                 <form id="scraperForm" onsubmit="return false;">
                     <!-- Date Range Picker -->
@@ -188,7 +185,7 @@
                         <div class="checkbox-container">
                             {% for topic in topics %}
                             <div>
-                                <input class="btn-check" type="checkbox" name="topics" value="{{ topic }}" id="topic{{ loop.index }}" autocomplete="off">
+                                <input class="btn-check" type="checkbox" name="topics" value="{{ topic }}" id="topic{{ loop.index }}" >
                                 <label class="btn btn-outline-secondary" for="topic{{ loop.index }}" style = "width: 100% !important;">
                                     {{ topic }}
                                 </label>
