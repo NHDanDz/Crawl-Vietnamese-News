@@ -1,7 +1,5 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
-from flask_cors import cross_origin
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash 
+from datetime import datetime, timedelta 
 from scraper import NewsScraper
 import os
 
